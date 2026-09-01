@@ -28,8 +28,10 @@
 #include "lldb/API/SBDebugger.h"
 #include "lldb/API/SBError.h"
 #include "lldb/API/SBFile.h"
+#include "lldb/API/SBFileSpec.h"
 #include "lldb/API/SBFormat.h"
 #include "lldb/API/SBFrame.h"
+#include "lldb/API/SBLineEntry.h"
 #include "lldb/API/SBMutex.h"
 #include "lldb/API/SBTarget.h"
 #include "lldb/API/SBThread.h"
@@ -39,6 +41,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/FunctionExtras.h"
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSet.h"
@@ -83,6 +86,28 @@ enum class ReplMode { Variable = 0, Command, Auto };
 
 using DAPTransport = lldb_private::transport::JSONTransport<ProtocolDescriptor>;
 
+class GotoTargets {
+public:
+  /// Insert \a entry and return the id the client should use in a follow-up
+  /// `goto` request.
+  uint64_t Insert(lldb::SBLineEntry entry) {
+    const uint64_t id = m_entries.size();
+    m_entries.push_back(std::move(entry));
+    return id;
+  }
+
+  std::optional<lldb::SBLineEntry> GetLineEntry(uint64_t id) const {
+    if (id >= m_entries.size())
+      return std::nullopt;
+    return m_entries[id];
+  }
+
+  void Clear() { m_entries.clear(); }
+
+private:
+  llvm::SmallVector<lldb::SBLineEntry, 2> m_entries;
+};
+
 struct DAP final : public DAPTransport::MessageHandler {
   friend class DAPSessionManager;
 
@@ -113,6 +138,7 @@ struct DAP final : public DAPTransport::MessageHandler {
 
   /// Map step in target id to list of function targets that user can choose.
   llvm::DenseMap<lldb::addr_t, std::string> step_in_targets;
+  GotoTargets goto_targets;
 
   /// A copy of the last LaunchRequest so we can reuse its arguments if we get a
   /// RestartRequest. Restarting an AttachRequest is not supported.
@@ -376,7 +402,10 @@ struct DAP final : public DAPTransport::MessageHandler {
   protocol::Capabilities GetCustomCapabilities();
 
   /// Debuggee will continue from stopped state.
-  void WillContinue() { reference_storage.Clear(); }
+  void WillContinue() {
+    reference_storage.Clear();
+    goto_targets.Clear();
+  }
 
   /// Poll the process to wait for it to reach the eStateStopped state.
   ///

@@ -751,6 +751,32 @@ llvm::json::Value toJSON(const StepInTarget &SIT) {
   return target;
 }
 
+bool fromJSON(const json::Value &Params, GotoTarget &GT, json::Path P) {
+  json::ObjectMapper O(Params, P);
+  return O && O.map("id", GT.id) && O.map("label", GT.label) &&
+         O.map("line", GT.line) && O.mapOptional("column", GT.column) &&
+         O.mapOptional("endLine", GT.endLine) &&
+         O.mapOptional("endColumn", GT.endColumn) &&
+         O.mapOptional("instructionPointerReference",
+                       GT.instructionPointerReference);
+}
+
+llvm::json::Value toJSON(const GotoTarget &GT) {
+  json::Object target{{"id", GT.id}, {"label", GT.label}, {"line", GT.line}};
+
+  if (GT.column != LLDB_INVALID_COLUMN_NUMBER)
+    target.insert({"column", GT.column});
+  if (GT.endLine != LLDB_INVALID_LINE_NUMBER)
+    target.insert({"endLine", GT.endLine});
+  if (GT.endColumn != LLDB_INVALID_COLUMN_NUMBER)
+    target.insert({"endColumn", GT.endColumn});
+  if (GT.instructionPointerReference)
+    target.insert(
+        {"instructionPointerReference", *GT.instructionPointerReference});
+
+  return target;
+}
+
 bool fromJSON(const json::Value &Params, Thread &T, json::Path P) {
   json::ObjectMapper O(Params, P);
   return O && O.map("id", T.id) && O.map("name", T.name);

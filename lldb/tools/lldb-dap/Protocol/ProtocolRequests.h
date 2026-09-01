@@ -600,6 +600,43 @@ struct StepInTargetsResponseBody {
 };
 llvm::json::Value toJSON(const StepInTargetsResponseBody &);
 
+/// Arguments for `gotoTargets` request.
+struct GotoTargetsArguments {
+  /// The source location for which the goto targets are determined.
+  Source source;
+
+  /// The line location for which the goto targets are determined.
+  uint32_t line = LLDB_INVALID_LINE_NUMBER;
+
+  /// The position within `line` for which the goto targets are determined. It
+  /// is measured in UTF-16 code units and the client capability
+  /// `columnsStartAt1` determines whether it is 0- or 1-based.
+  std::optional<uint32_t> column;
+};
+bool fromJSON(const llvm::json::Value &, GotoTargetsArguments &,
+              llvm::json::Path);
+
+/// Response to `gotoTargets` request.
+struct GotoTargetsResponseBody {
+  /// The possible goto targets of the specified location.
+  std::vector<GotoTarget> targets;
+};
+llvm::json::Value toJSON(const GotoTargetsResponseBody &);
+
+/// Arguments for `goto` request.
+struct GotoArguments {
+  /// Set the goto target for this thread.
+  lldb::tid_t threadId = LLDB_INVALID_THREAD_ID;
+
+  /// The location where the debuggee will continue to run.
+  uint64_t targetId = 0;
+};
+bool fromJSON(const llvm::json::Value &, GotoArguments &, llvm::json::Path);
+
+/// Response to `goto` request. This is just an acknowledgement, so no body
+/// field is required.
+using GotoResponse = VoidResponse;
+
 /// Arguments for `stepOut` request.
 struct StepOutArguments {
   /// Specifies the thread for which to resume execution for one step-out (of

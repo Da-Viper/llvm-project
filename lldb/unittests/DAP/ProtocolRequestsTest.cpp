@@ -460,3 +460,77 @@ TEST(ProtocolRequestsTest, CancelRequestArguments) {
   // Check an empty message, all keys are optional.
   EXPECT_THAT_EXPECTED(parse<CancelArguments>(R"({})"), Succeeded());
 }
+
+TEST(ProtocolRequestsTest, GotoArguments) {
+  llvm::Expected<GotoArguments> expected = parse<GotoArguments>(R"({
+    "threadId": 42,
+    "targetId": 7
+  })");
+  ASSERT_THAT_EXPECTED(expected, llvm::Succeeded());
+  EXPECT_EQ(expected->threadId, 42U);
+  EXPECT_EQ(expected->targetId, 7U);
+
+  // Check required keys.
+  EXPECT_THAT_EXPECTED(parse<GotoArguments>(R"({})"),
+                       FailedWithMessage("missing value at (root).threadId"));
+  EXPECT_THAT_EXPECTED(parse<GotoArguments>(R"({"threadId": 42})"),
+                       FailedWithMessage("missing value at (root).targetId"));
+  EXPECT_THAT_EXPECTED(parse<GotoArguments>(R"({"targetId": 7})"),
+                       FailedWithMessage("missing value at (root).threadId"));
+}
+
+TEST(ProtocolRequestsTest, GotoTargetsArguments) {
+  llvm::Expected<GotoTargetsArguments> expected =
+      parse<GotoTargetsArguments>(R"({
+        "source": {"path": "/tmp/main.cpp", "name": "main.cpp"},
+        "line": 12,
+        "column": 4
+      })");
+  ASSERT_THAT_EXPECTED(expected, llvm::Succeeded());
+  EXPECT_EQ(expected->source.path, "/tmp/main.cpp");
+  EXPECT_EQ(expected->source.name, "main.cpp");
+  EXPECT_EQ(expected->line, 12U);
+  ASSERT_TRUE(expected->column.has_value());
+  EXPECT_EQ(expected->column.value(), 4U);
+
+  // Column is optional.
+  llvm::Expected<GotoTargetsArguments> no_column =
+      parse<GotoTargetsArguments>(R"({
+        "source": {"path": "/tmp/main.cpp"},
+        "line": 12
+      })");
+  ASSERT_THAT_EXPECTED(no_column, llvm::Succeeded());
+  EXPECT_EQ(no_column->line, 12U);
+  EXPECT_FALSE(no_column->column.has_value());
+
+  // Check required keys.
+  EXPECT_THAT_EXPECTED(parse<GotoTargetsArguments>(R"({})"),
+                       FailedWithMessage("missing value at (root).source"));
+  EXPECT_THAT_EXPECTED(
+      parse<GotoTargetsArguments>(R"({"source": {"path": "/tmp/main.cpp"}})"),
+      FailedWithMessage("missing value at (root).line"));
+}
+
+TEST(ProtocolRequestsTest, GotoTargetsResponseBody) {
+  GotoTargetsResponseBody body;
+  GotoTarget target;
+  target.id = 1;
+  target.label = "main.cpp:12";
+  target.line = 12;
+  body.targets.push_back(std::move(target));
+
+  Expected<json::Value> expected = parse(R"({
+    "targets": [
+      {"id": 1, "label": "main.cpp:12", "line": 12}
+    ]
+  })");
+  ASSERT_THAT_EXPECTED(expected, llvm::Succeeded());
+  EXPECT_EQ(PrettyPrint(*expected), PrettyPrint(body));
+
+  // An empty target list serializes to an empty array (spec allows this even
+  // though `targets` is required).
+  GotoTargetsResponseBody empty_body;
+  Expected<json::Value> empty_expected = parse(R"({"targets": []})");
+  ASSERT_THAT_EXPECTED(empty_expected, llvm::Succeeded());
+  EXPECT_EQ(PrettyPrint(*empty_expected), PrettyPrint(empty_body));
+}

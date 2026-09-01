@@ -773,6 +773,43 @@ TEST(ProtocolTypesTest, StepInTarget) {
             PrettyPrint(target));
 }
 
+TEST(ProtocolTypesTest, GotoTarget) {
+  GotoTarget target;
+  target.id = 42;
+  target.label = "main.cpp:12";
+  target.line = 12;
+  target.column = 5;
+  target.endLine = 12;
+  target.endColumn = 40;
+  target.instructionPointerReference = "0xdeadbeef";
+
+  llvm::Expected<GotoTarget> deserialized_target = roundtripJSON(target);
+  ASSERT_THAT_EXPECTED(deserialized_target, llvm::Succeeded());
+
+  EXPECT_EQ(target.id, deserialized_target->id);
+  EXPECT_EQ(target.label, deserialized_target->label);
+  EXPECT_EQ(target.line, deserialized_target->line);
+  EXPECT_EQ(target.column, deserialized_target->column);
+  EXPECT_EQ(target.endLine, deserialized_target->endLine);
+  EXPECT_EQ(target.endColumn, deserialized_target->endColumn);
+  EXPECT_EQ(target.instructionPointerReference,
+            deserialized_target->instructionPointerReference);
+
+  // Sentinel values for the optional fields should be dropped from the
+  // serialized form (matches how `StepInTarget` handles missing fields).
+  target.column = LLDB_INVALID_COLUMN_NUMBER;
+  target.endLine = LLDB_INVALID_LINE_NUMBER;
+  target.endColumn = LLDB_INVALID_COLUMN_NUMBER;
+  target.instructionPointerReference = std::nullopt;
+
+  EXPECT_EQ(R"({
+  "id": 42,
+  "label": "main.cpp:12",
+  "line": 12
+})",
+            PrettyPrint(target));
+}
+
 TEST(ProtocolTypesTest, ReadMemoryArguments) {
   ReadMemoryArguments args;
   args.count = 20;

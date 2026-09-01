@@ -42,6 +42,8 @@ add_lldb_library(lldbDAP OBJECT
   Handler/DisconnectRequestHandler.cpp
   Handler/EvaluateRequestHandler.cpp
   Handler/ExceptionInfoRequestHandler.cpp
+  Handler/GotoRequestHandler.cpp
+  Handler/GotoTargetsRequestHandler.cpp
   Handler/InitializeRequestHandler.cpp
   Handler/LaunchRequestHandler.cpp
   Handler/LocationsRequestHandler.cpp

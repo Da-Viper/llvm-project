@@ -11,6 +11,7 @@
 
 #include "lldb/API/SBDefines.h"
 #include "lldb/API/SBError.h"
+#include "lldb/API/SBLineEntry.h"
 #include "lldb/API/SBSection.h"
 #include "lldb/API/SBSymbolContext.h"
 #include "lldb/API/SBValueList.h"
@@ -136,6 +137,45 @@ public:
   ///     the symbol contexts for all the matches.
   lldb::SBSymbolContextList
   FindCompileUnits(const lldb::SBFileSpec &sb_file_spec);
+
+  /// Find every symbol context that maps to the source location in
+  /// \a line_entry, including inlined instances that live in other compile
+  /// units when \a check_inlines is true.
+  ///
+  /// The location is read from \a line_entry as `(GetFileSpec(), GetLine())`.
+  /// Other fields on \a line_entry (column, end-line, end-column, start/end
+  /// address) are currently ignored; they exist on the parameter so this
+  /// signature can be extended in future without breaking callers when the
+  /// underlying resolver gains column and range support.
+  ///
+  /// This is the read-only, data-returning counterpart of setting a
+  /// file+line breakpoint: it walks the module's line tables using the same
+  /// resolver machinery `BreakpointResolverFileLine` relies on, but returns
+  /// the matches as an `SBSymbolContextList` instead of creating a
+  /// breakpoint. Each returned `SBSymbolContext` carries the module, compile
+  /// unit, function, block, and line entry for one match.
+  ///
+  /// \param[in] line_entry
+  ///     The source location to resolve. Must have a valid `GetFileSpec()`
+  ///     and non-zero `GetLine()`.
+  ///
+  /// \param[in] check_inlines
+  ///     If true, also return inlined instances of the source file that live
+  ///     in other compile units. If false, only entries that belong to a
+  ///     compile unit whose primary file matches are returned.
+  ///
+  /// \param[in] resolve_scope
+  ///     Controls which `lldb::SymbolContextItem` fields of each returned
+  ///     `SBSymbolContext` are populated. Multiple bits may be OR'd together
+  ///     (e.g. `eSymbolContextFunction | eSymbolContextLineEntry`). Defaults
+  ///     to `eSymbolContextEverything`.
+  ///
+  /// \return
+  ///     A list of matching symbol contexts. Empty if the module has no
+  ///     debug info for the requested location.
+  lldb::SBSymbolContextList FindContexts(
+      const lldb::SBLineEntry &line_entry, bool check_inlines = true,
+      lldb::SymbolContextItem resolve_scope = lldb::eSymbolContextEverything);
 
   size_t GetNumSymbols();
 

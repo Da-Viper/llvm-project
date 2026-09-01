@@ -248,6 +248,27 @@ Makes programs 10x faster by doing Special New Thing.
   return values that were actually in a different set. Both methods are now fixed
   so that they are limited to the registers within the register set. Scripts
   using these methods may have to be updated as a result.
+* New `SBTarget::FindContexts(SBLineEntry, check_inlines, resolve_scope)`
+  and matching `SBModule::FindContexts` methods: expose LLDB's file+line
+  resolver machinery (the same one `BreakpointResolverFileLine` uses) as a
+  read-only, data-returning API. The source location to resolve is given as
+  an `SBLineEntry` (currently only its file spec and line are consulted;
+  column and range fields are placeholders for future extension). Returns
+  an `SBSymbolContextList` with the full symbol context for every match,
+  including inlined instances that live in other compile units when
+  `check_inlines=true`. Clients that previously had to walk
+  `SBCompileUnit::GetLineEntryAtIndex` manually — and would miss
+  header-defined inlines — can now use these methods instead.
+
+#### lldb-dap
+
+* Added support for the `gotoTargets` and `goto` requests, advertised via the
+  `supportsGotoTargetsRequest` capability. This lets a DAP client jump the
+  debuggee's program counter to a chosen source line within the current
+  function ("jump to cursor"). Targets are resolved against debug info: if the
+  requested line has no code, the nearest previous and next valid lines within
+  the enclosing function are offered as fallbacks so the user can pick before
+  committing the jump.
 
 #### Windows
 

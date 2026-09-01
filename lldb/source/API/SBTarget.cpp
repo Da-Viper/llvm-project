@@ -13,6 +13,7 @@
 #include "lldb/API/SBEvent.h"
 #include "lldb/API/SBExpressionOptions.h"
 #include "lldb/API/SBFileSpec.h"
+#include "lldb/API/SBLineEntry.h"
 #include "lldb/API/SBListener.h"
 #include "lldb/API/SBModule.h"
 #include "lldb/API/SBModuleSpec.h"
@@ -1685,6 +1686,29 @@ SBSymbolContextList SBTarget::FindCompileUnits(const SBFileSpec &sb_file_spec) {
   if (TargetSP target_sp = GetSP(); target_sp && sb_file_spec.IsValid())
     target_sp->GetImages().FindCompileUnits(*sb_file_spec, *sb_sc_list);
   return sb_sc_list;
+}
+
+SBSymbolContextList SBTarget::FindContexts(const SBLineEntry &line_entry,
+                                           bool check_inlines,
+                                           lldb::SymbolContextItem resolve_scope) {
+  LLDB_INSTRUMENT_VA(this, line_entry, check_inlines, resolve_scope);
+
+  SBSymbolContextList sc_list;
+  TargetSP target_sp = GetSP();
+  if (!target_sp || !line_entry.IsValid())
+    return sc_list;
+
+  SBFileSpec file_spec = line_entry.GetFileSpec();
+  if (!file_spec.IsValid())
+    return sc_list;
+
+  // TODO: pass column and end-line/end-column through once
+  // SourceLocationSpec / ResolveSymbolContextsForFileSpec grow range and
+  // column support upstream.
+  target_sp->GetImages().ResolveSymbolContextsForFileSpec(
+      *file_spec, line_entry.GetLine(), check_inlines, resolve_scope,
+      *sc_list);
+  return sc_list;
 }
 
 lldb::ByteOrder SBTarget::GetByteOrder() {

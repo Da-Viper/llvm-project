@@ -373,6 +373,30 @@ public:
   Run(const protocol::StepInTargetsArguments &args) const override;
 };
 
+class GotoTargetsRequestHandler
+    : public RequestHandler<
+          protocol::GotoTargetsArguments,
+          llvm::Expected<protocol::GotoTargetsResponseBody>> {
+public:
+  using RequestHandler::RequestHandler;
+  static llvm::StringLiteral GetCommand() { return "gotoTargets"; }
+  FeatureSet GetSupportedFeatures() const override {
+    return {protocol::eAdapterFeatureGotoTargetsRequest};
+  }
+  llvm::Expected<protocol::GotoTargetsResponseBody>
+  Run(const protocol::GotoTargetsArguments &args) const override;
+};
+
+class GotoRequestHandler
+    : public RequestHandler<protocol::GotoArguments, protocol::GotoResponse> {
+public:
+  using RequestHandler::RequestHandler;
+  static llvm::StringLiteral GetCommand() { return "goto"; }
+  llvm::Error Run(const protocol::GotoArguments &args) const override;
+
+private:
+};
+
 class StepOutRequestHandler : public RequestHandler<protocol::StepOutArguments,
                                                     protocol::StepOutResponse> {
 public:

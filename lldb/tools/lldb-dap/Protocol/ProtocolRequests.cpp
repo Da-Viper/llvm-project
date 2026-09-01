@@ -474,6 +474,24 @@ llvm::json::Value toJSON(const StepInTargetsResponseBody &SITR) {
   return llvm::json::Object{{"targets", SITR.targets}};
 }
 
+bool fromJSON(const llvm::json::Value &Params, GotoTargetsArguments &GTA,
+              llvm::json::Path P) {
+  json::ObjectMapper OM(Params, P);
+  return OM && OM.map("source", GTA.source) && OM.map("line", GTA.line) &&
+         OM.mapOptional("column", GTA.column);
+}
+
+llvm::json::Value toJSON(const GotoTargetsResponseBody &GTR) {
+  return llvm::json::Object{{"targets", GTR.targets}};
+}
+
+bool fromJSON(const llvm::json::Value &Params, GotoArguments &GA,
+              llvm::json::Path P) {
+  json::ObjectMapper OM(Params, P);
+  return OM && OM.map("threadId", GA.threadId) &&
+         OM.map("targetId", GA.targetId);
+}
+
 bool fromJSON(const json::Value &Params, StepOutArguments &SOA, json::Path P) {
   json::ObjectMapper OM(Params, P);
   return OM && OM.map("threadId", SOA.threadId) &&

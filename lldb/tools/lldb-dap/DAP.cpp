@@ -1520,6 +1520,8 @@ void DAP::RegisterRequests() {
   RegisterRequest<DisconnectRequestHandler>();
   RegisterRequest<EvaluateRequestHandler>();
   RegisterRequest<ExceptionInfoRequestHandler>();
+  RegisterRequest<GotoRequestHandler>();
+  RegisterRequest<GotoTargetsRequestHandler>();
   RegisterRequest<InitializeRequestHandler>();
   RegisterRequest<LaunchRequestHandler>();
   RegisterRequest<LocationsRequestHandler>();

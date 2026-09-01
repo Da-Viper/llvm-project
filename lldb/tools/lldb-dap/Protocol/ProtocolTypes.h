@@ -555,6 +555,35 @@ struct StepInTarget {
 bool fromJSON(const llvm::json::Value &, StepInTarget &, llvm::json::Path);
 llvm::json::Value toJSON(const StepInTarget &);
 
+/// A `GotoTarget` describes a code location that can be used as a target in
+/// the `goto` request. The possible goto targets can be determined via the
+/// `gotoTargets` request.
+struct GotoTarget {
+  /// Unique identifier for a goto target. This is used in the `goto` request.
+  uint64_t id = 0;
+
+  /// The name of the goto target (shown in the UI).
+  String label;
+
+  /// The line of the goto target.
+  uint32_t line = LLDB_INVALID_LINE_NUMBER;
+
+  /// The column of the goto target.
+  uint32_t column = LLDB_INVALID_COLUMN_NUMBER;
+
+  /// The end line of the range covered by the goto target.
+  uint32_t endLine = LLDB_INVALID_LINE_NUMBER;
+
+  /// The end column of the range covered by the goto target.
+  uint32_t endColumn = LLDB_INVALID_COLUMN_NUMBER;
+
+  /// A memory reference for the instruction pointer value represented by this
+  /// target.
+  std::optional<String> instructionPointerReference;
+};
+bool fromJSON(const llvm::json::Value &, GotoTarget &, llvm::json::Path);
+llvm::json::Value toJSON(const GotoTarget &);
+
 /// A Thread.
 struct Thread {
   /// Unique identifier for the thread.
