@@ -109,10 +109,17 @@ class DAPTestCaseBase(Base, metaclass=LLDBTestCaseFactory):
         )
 
         def cleanup_session():
-            if disconnect_automatically:
-                self.logger.debug("Automatically disconnecting.")
-                session.disconnect(terminateDebuggee=True)
-            session.stop()
+            try:
+                if disconnect_automatically:
+                    self.logger.debug("Automatically disconnecting.")
+                    try:
+                        session.disconnect(terminateDebuggee=True)
+                    except TimeoutError as e:
+                        self.logger.warning(
+                            "disconnect timed out during teardown: %s", e
+                        )
+            finally:
+                session.stop()
 
         session.start()
         self.addTearDownHook(cleanup_session)
