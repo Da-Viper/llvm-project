@@ -1688,10 +1688,11 @@ SBSymbolContextList SBTarget::FindCompileUnits(const SBFileSpec &sb_file_spec) {
   return sb_sc_list;
 }
 
-SBSymbolContextList SBTarget::FindContexts(const SBLineEntry &line_entry,
-                                           bool check_inlines,
-                                           lldb::SymbolContextItem resolve_scope) {
-  LLDB_INSTRUMENT_VA(this, line_entry, check_inlines, resolve_scope);
+SBSymbolContextList
+SBTarget::FindSymbolContexts(const SBLineEntry &line_entry,
+                             lldb::SymbolContextItem resolve_scope,
+                             bool check_inlines) {
+  LLDB_INSTRUMENT_VA(this, line_entry, resolve_scope, check_inlines);
 
   SBSymbolContextList sc_list;
   TargetSP target_sp = GetSP();
@@ -1706,8 +1707,7 @@ SBSymbolContextList SBTarget::FindContexts(const SBLineEntry &line_entry,
   // SourceLocationSpec / ResolveSymbolContextsForFileSpec grow range and
   // column support upstream.
   target_sp->GetImages().ResolveSymbolContextsForFileSpec(
-      *file_spec, line_entry.GetLine(), check_inlines, resolve_scope,
-      *sc_list);
+      *file_spec, line_entry.GetLine(), check_inlines, resolve_scope, *sc_list);
   return sc_list;
 }
 

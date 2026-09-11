@@ -1,5 +1,5 @@
 """
-Test SBTarget::FindContexts / SBModule::FindContexts APIs.
+Test SBTarget::FindSymbolContexts / SBModule::FindSymbolContexts APIs.
 
 These wrap `Module::ResolveSymbolContextsForFileSpec` and give clients access
 to the same file+line resolution machinery `BreakpointResolverFileLine` uses,
@@ -19,14 +19,14 @@ def line_entry(file_spec: lldb.SBFileSpec, line: int):
     return entry
 
 
-class FindContextsAPITestCase(TestBase):
+class FindSymbolContextsAPITestCase(TestBase):
 
-    def test_find_contexts_finds_inlined_header_entry(self):
+    def test_finds_inlined_header_entry(self):
         """
-        `FindContexts` should return the inlined instance of a header-defined
-        function even though the header is not the caller's compile unit.
-        The pre-existing `SBCompileUnit::GetLineEntryAtIndex` walk cannot see
-        those entries.
+        `FindSymbolContexts` should return the inlined instance of a
+        header-defined function even though the header is not the caller's
+        compile unit. The pre-existing `SBCompileUnit::GetLineEntryAtIndex`
+        walk cannot see those entries.
         """
         self.build()
         (target, process, thread, bkpt) = lldbutil.run_to_source_breakpoint(
@@ -37,15 +37,15 @@ class FindContextsAPITestCase(TestBase):
         header_spec = lldb.SBFileSpec("inlined.h")
         inlined_line = line_number("inlined.h", "// inlined body")
 
-        # With check_inlines=True the header's line entry is reachable across
-        # the whole target -- this is the case that motivated the API.
-        sc_list: lldb.SBSymbolContextList = target.FindContexts(
-            line_entry(header_spec, inlined_line), True
-        )
+        # With check_inlines=True (the default) the header's line entry is
+        # reachable across the whole target -- this is the case that
+        # motivated the API.
+        sb_line_entry = line_entry(header_spec, inlined_line)
+        sc_list: lldb.SBSymbolContextList = target.FindSymbolContexts(sb_line_entry)
         self.assertGreater(
             sc_list.GetSize(),
             0,
-            "FindContexts(check_inlines=True) should find the inlined instance",
+            "FindSymbolContexts should find the inlined instance",
         )
 
         # Every context should carry a line entry actually on the requested
@@ -56,7 +56,7 @@ class FindContextsAPITestCase(TestBase):
             self.assertEqual(entry.GetLine(), inlined_line)
             self.assertEqual(entry.GetFileSpec().GetFilename(), "inlined.h")
 
-    def test_find_contexts_check_inlines_false(self):
+    def test_check_inlines_false(self):
         """
         With check_inlines=False, the header's line entry is only returned if
         the header itself is a primary compile-unit file. In our fixture it
@@ -69,14 +69,18 @@ class FindContextsAPITestCase(TestBase):
         header_spec = lldb.SBFileSpec("inlined.h")
         inlined_line = line_number("inlined.h", "// inlined body")
 
-        sc_list = target.FindContexts(line_entry(header_spec, inlined_line), False)
+        sc_list = target.FindSymbolContexts(
+            line_entry(header_spec, inlined_line),
+            lldb.eSymbolContextEverything,
+            False,
+        )
         self.assertEqual(
             sc_list.GetSize(),
             0,
-            "FindContexts(check_inlines=False) should not surface header inlines",
+            "FindSymbolContexts(check_inlines=False) should not surface header inlines",
         )
 
-    def test_find_contexts_primary_source(self):
+    def test_primary_source(self):
         """
         For a line in a primary compile-unit file, both `check_inlines` values
         should return a non-empty result. Basic smoke test.
@@ -89,21 +93,23 @@ class FindContextsAPITestCase(TestBase):
         break_line = line_number("main.cpp", "// break here")
 
         for check_inlines in (True, False):
-            sc_list = target.FindContexts(
-                line_entry(main_spec, break_line), check_inlines
+            sc_list = target.FindSymbolContexts(
+                line_entry(main_spec, break_line),
+                lldb.eSymbolContextEverything,
+                check_inlines,
             )
             self.assertGreater(
                 sc_list.GetSize(),
                 0,
-                f"FindContexts on primary source should not be empty "
+                f"FindSymbolContexts on primary source should not be empty "
                 f"(check_inlines={check_inlines})",
             )
 
-    def test_find_contexts_matches_between_target_and_module(self):
+    def test_matches_between_target_and_module(self):
         """
-        `SBTarget::FindContexts` should return the same entries as
-        `SBModule::FindContexts` on the module containing the match, for a
-        single-module executable.
+        `SBTarget::FindSymbolContexts` should return the same entries as
+        `SBModule::FindSymbolContexts` on the module containing the match,
+        for a single-module executable.
         """
         self.build()
         (target, process, thread, bkpt) = lldbutil.run_to_source_breakpoint(
@@ -114,17 +120,17 @@ class FindContextsAPITestCase(TestBase):
         break_line = line_number("main.cpp", "// break here")
         source_location = line_entry(main_spec, break_line)
 
-        target_list = target.FindContexts(source_location)
+        target_list = target.FindSymbolContexts(source_location)
         self.assertGreater(target_list.GetSize(), 0)
 
-        # The a.out module owns main.cpp; its FindContexts should give the
-        # same number of matches for the same source location.
+        # The a.out module owns main.cpp; its FindSymbolContexts should give
+        # the same number of matches for the same source location.
         module = target.FindModule(lldb.SBFileSpec("a.out"))
         self.assertTrue(module.IsValid())
-        module_list = module.FindContexts(source_location)
+        module_list = module.FindSymbolContexts(source_location)
         self.assertEqual(target_list.GetSize(), module_list.GetSize())
 
-    def test_find_contexts_invalid_inputs(self):
+    def test_invalid_inputs(self):
         """
         Invalid file spec or missing line should yield empty results, not
         crash.
@@ -134,18 +140,18 @@ class FindContextsAPITestCase(TestBase):
             self, "// break here", lldb.SBFileSpec("main.cpp")
         )
 
-        empty_result = target.FindContexts(line_entry(lldb.SBFileSpec(), 1))
+        empty_result = target.FindSymbolContexts(line_entry(lldb.SBFileSpec(), 1))
         self.assertEqual(empty_result.GetSize(), 0)
 
-        missing_line = target.FindContexts(
+        missing_line = target.FindSymbolContexts(
             line_entry(lldb.SBFileSpec("main.cpp"), 99999)
         )
         self.assertEqual(missing_line.GetSize(), 0)
 
-    def test_find_contexts_invalid_line_entry(self):
+    def test_invalid_line_entry(self):
         """
         A default-constructed `SBLineEntry` (no file spec, no line) is
-        invalid -- `FindContexts` should short-circuit and return empty.
+        invalid -- `FindSymbolContexts` should short-circuit and return empty.
         """
         self.build()
         (target, process, thread, bkpt) = lldbutil.run_to_source_breakpoint(
@@ -154,4 +160,4 @@ class FindContextsAPITestCase(TestBase):
 
         empty_entry = lldb.SBLineEntry()
         self.assertFalse(empty_entry.IsValid())
-        self.assertEqual(target.FindContexts(empty_entry).GetSize(), 0)
+        self.assertEqual(target.FindSymbolContexts(empty_entry).GetSize(), 0)

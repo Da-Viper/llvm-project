@@ -159,23 +159,24 @@ public:
   ///     The source location to resolve. Must have a valid `GetFileSpec()`
   ///     and non-zero `GetLine()`.
   ///
-  /// \param[in] check_inlines
-  ///     If true, also return inlined instances of the source file that live
-  ///     in other compile units. If false, only entries that belong to a
-  ///     compile unit whose primary file matches are returned.
-  ///
   /// \param[in] resolve_scope
   ///     Controls which `lldb::SymbolContextItem` fields of each returned
   ///     `SBSymbolContext` are populated. Multiple bits may be OR'd together
   ///     (e.g. `eSymbolContextFunction | eSymbolContextLineEntry`). Defaults
   ///     to `eSymbolContextEverything`.
   ///
+  /// \param[in] check_inlines
+  ///     If true, also return inlined instances of the source file that live
+  ///     in other compile units. If false, only entries that belong to a
+  ///     compile unit whose primary file matches are returned.
+  ///
   /// \return
   ///     A list of matching symbol contexts. Empty if the module has no
   ///     debug info for the requested location.
-  lldb::SBSymbolContextList FindContexts(
-      const lldb::SBLineEntry &line_entry, bool check_inlines = true,
-      lldb::SymbolContextItem resolve_scope = lldb::eSymbolContextEverything);
+  lldb::SBSymbolContextList FindSymbolContexts(
+      const lldb::SBLineEntry &line_entry,
+      lldb::SymbolContextItem resolve_scope = lldb::eSymbolContextEverything,
+      bool check_inlines = true);
 
   size_t GetNumSymbols();
 

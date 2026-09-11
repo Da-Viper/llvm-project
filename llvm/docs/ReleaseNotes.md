@@ -248,8 +248,8 @@ Makes programs 10x faster by doing Special New Thing.
   return values that were actually in a different set. Both methods are now fixed
   so that they are limited to the registers within the register set. Scripts
   using these methods may have to be updated as a result.
-* New `SBTarget::FindContexts(SBLineEntry, check_inlines, resolve_scope)`
-  and matching `SBModule::FindContexts` methods: expose LLDB's file+line
+* New `SBTarget::FindSymbolContexts(SBLineEntry, resolve_scope, check_inlines)`
+  and matching `SBModule::FindSymbolContexts` methods: expose LLDB's file+line
   resolver machinery (the same one `BreakpointResolverFileLine` uses) as a
   read-only, data-returning API. The source location to resolve is given as
   an `SBLineEntry` (currently only its file spec and line are consulted;

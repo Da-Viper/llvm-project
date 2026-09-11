@@ -761,7 +761,7 @@ bool fromJSON(const json::Value &Params, GotoTarget &GT, json::Path P) {
                        GT.instructionPointerReference);
 }
 
-llvm::json::Value toJSON(const GotoTarget &GT) {
+json::Value toJSON(const GotoTarget &GT) {
   json::Object target{{"id", GT.id}, {"label", GT.label}, {"line", GT.line}};
 
   if (GT.column != LLDB_INVALID_COLUMN_NUMBER)

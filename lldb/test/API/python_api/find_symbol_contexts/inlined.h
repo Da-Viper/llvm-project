@@ -6,7 +6,7 @@
 // module's line table via `Module::ResolveSymbolContextsForFileSpec` with
 // `check_inlines=true` -- but they will NOT appear in `caller.cpp`'s
 // SBCompileUnit line-entry index. That difference is what
-// SBTarget::FindContexts / SBModule::FindContexts exists to bridge.
+// SBTarget::FindSymbolContexts / SBModule::FindSymbolContexts exists to bridge.
 inline int inlined_add(int a, int b) __attribute__((always_inline));
 inline int inlined_add(int a, int b) {
   int sum = a + b; // inlined body

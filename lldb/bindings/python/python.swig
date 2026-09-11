@@ -63,8 +63,8 @@ except ImportError:
 
 // Parameter types will be used in the autodoc string.
 %feature("autodoc", "1");
-%feature("compactdefaultargs") lldb::SBModule::FindContexts;
-%feature("compactdefaultargs") lldb::SBTarget::FindContexts;
+%feature("compactdefaultargs") lldb::SBModule::FindSymbolContexts;
+%feature("compactdefaultargs") lldb::SBTarget::FindSymbolContexts;
 
 #if SWIG_VERSION >= 0x040500
 %feature("python:annotations", "typing");
