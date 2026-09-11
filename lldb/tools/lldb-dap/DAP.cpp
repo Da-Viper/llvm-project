@@ -85,6 +85,46 @@ const char DEV_NULL[] = "nul";
 #else
 const char DEV_NULL[] = "/dev/null";
 #endif
+
+// Upper bound on individual blocking steps taken during DAP::Disconnect. Normal
+// shutdown completes in milliseconds; this bound only trips when something is
+// genuinely wedged (a hung terminate command, a plugin that never delivers a
+// process-terminal event). The client's disconnect timeout is 50s, so keeping
+// each step well under that keeps the response prompt.
+constexpr std::chrono::seconds kShutdownStepTimeout(2);
+
+// Runs `fn` on a background thread and waits up to `timeout` for it to finish.
+// Returns true if it finished in time; false if the timeout expired, in which
+// case the thread is left running and completes when the process exits. This
+// is intentionally used only on shutdown paths where the alternative is an
+// indefinite block on user-controlled code (e.g. terminateCommands).
+bool RunWithTimeout(std::chrono::seconds timeout, std::function<void()> fn) {
+  auto task = std::make_shared<std::packaged_task<void()>>(std::move(fn));
+  auto future = task->get_future();
+  std::thread([task] { (*task)(); }).detach();
+  return future.wait_for(timeout) == std::future_status::ready;
+}
+
+// Poll the process state until it reaches a terminal value or `timeout`
+// elapses. Called after an async Kill/Detach so the state change is expected
+// to arrive shortly via the event pump.
+bool WaitForProcessToTerminate(lldb::SBProcess &process,
+                               std::chrono::seconds timeout) {
+  const auto deadline = std::chrono::steady_clock::now() + timeout;
+  while (std::chrono::steady_clock::now() < deadline) {
+    switch (process.GetState()) {
+    case lldb::eStateExited:
+    case lldb::eStateDetached:
+    case lldb::eStateInvalid:
+    case lldb::eStateUnloaded:
+      return true;
+    default:
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+  }
+  return false;
+}
 } // namespace
 
 namespace lldb_dap {
@@ -876,7 +916,15 @@ bool DAP::HandleObject(const Message &M) {
 void DAP::SendTerminatedEvent() {
   // Prevent races if the process exits while we're being asked to disconnect.
   llvm::call_once(terminated_event_flag, [&] {
-    RunTerminateCommands();
+    // Bound user-supplied terminateCommands so a stuck command cannot hold up
+    // the client's disconnect response indefinitely.
+    if (!RunWithTimeout(kShutdownStepTimeout,
+                        [this] { RunTerminateCommands(); })) {
+      DAP_LOG(log,
+              "terminateCommands did not finish within {0}s; continuing "
+              "with shutdown",
+              kShutdownStepTimeout.count());
+    }
     // Send a "terminated" event
     llvm::json::Object event(CreateTerminatedEventObject(target));
     SendJSON(llvm::json::Value(std::move(event)));
@@ -903,8 +951,19 @@ llvm::Error DAP::Disconnect(bool terminateDebuggee) {
   case lldb::eStateSuspended:
   case lldb::eStateStopped:
   case lldb::eStateRunning: {
-    ScopeSyncMode scope_sync_mode(debugger);
+    // Issue Kill/Detach without switching to synchronous mode: the call
+    // returns promptly and the state transition arrives asynchronously via
+    // the event pump. Previously this ran under ScopeSyncMode, which could
+    // wedge indefinitely if the debugger's event thread was busy or a plugin
+    // never delivered the expected state event, causing 50s test timeouts.
     error = terminateDebuggee ? process.Kill() : process.Detach();
+    if (!WaitForProcessToTerminate(process, kShutdownStepTimeout)) {
+      DAP_LOG(log,
+              "process did not reach a terminal state within {0}s of {1}; "
+              "continuing with disconnect",
+              kShutdownStepTimeout.count(),
+              terminateDebuggee ? "Kill()" : "Detach()");
+    }
     break;
   }
   }
